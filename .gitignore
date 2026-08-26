@@ -1,0 +1,22 @@
+# Next.js specific
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/next-env.d.ts
+frontend/.vercel
+frontend/*.tsbuildinfo
+frontend/node_modules/*
+
+# Node server specific
+node-server/node_modules/
+node-server/uploads/
+node-server/*.log
+
+# C++ specific
+cpp-server/*.o
+cpp-server/*.obj
+cpp-server/grpc_server
+cpp-server/image_processor
+
+.vscode
+node_modules

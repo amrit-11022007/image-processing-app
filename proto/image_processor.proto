@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package imageprocessor;
+
+service ImageProcessor {
+    rpc ProcessImage (ImageRequest) returns (ImageResponse);
+}
+
+message ImageRequest {
+    bytes image_data = 1;
+    int32 width = 2;
+    int32 height = 3;
+    string operation = 4;
+    int32 kernel_size = 5;
+}
+
+message ImageResponse {
+    bytes processed_data = 1;
+    int32 width = 2;
+    int32 height = 3;
+    string error = 4;
+}

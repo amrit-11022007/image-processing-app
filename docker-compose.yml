@@ -1,0 +1,9 @@
+services:
+  cpp-grpc-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: cpp-grpc-server
+    ports:
+      - "50051:50051"
+    restart: unless-stopped
