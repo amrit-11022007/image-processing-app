@@ -29,5 +29,4 @@ private:
   void validateKernelSize(int &kernelSize);
   void optimalSigma(double &sigma, int kernelSize);
   double gaussian1D(double x, double sigma);
-  double gaussian2D(double x, double y, double sigma);
 };

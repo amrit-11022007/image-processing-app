@@ -98,33 +98,22 @@ double ImageProcessingCore::gaussian1D(double x, double sigma)
   return (1.0 / (sigma * std::sqrt(2.0 * std::numbers::pi)) * std::exp(-(x * x) / (2 * sigma * sigma)));
 }
 
-double ImageProcessingCore::gaussian2D(double x, double y, double sigma)
-{
-  return (1.0 / (2 * std::numbers::pi * sigma * sigma) * std::exp(-(x * x + y * y) / (2 * sigma * sigma)));
-}
-
 std::vector<double> ImageProcessingCore::createGaussianKernel(int size, double sigma)
 {
-  if (size % 2 == 0)
-    size++;
-  if (size < 2)
-    size = 3;
+  validateKernelSize(size);
   optimalSigma(sigma, size);
-  std::vector<double> kernel(size * size);
+
+  std::vector<double> kernel(size);
   double sum = 0.0;
-  double half = size / 2;
-  // unnormalized kernel
-  for (int y = -half; y <= half; y++)
+  int half = size / 2;
+
+  for (int x = -half; x <= half; x++)
   {
-    for (int x = -half; x <= half; x++)
-    {
-      double value = gaussian2D((double)x, (double)y, sigma);
-      int idx = (y + half) * size + (x + half);
-      kernel[idx] = value;
-      sum += value;
-    }
+    double value = gaussian1D(static_cast<double>(x), sigma);
+    kernel[x + half] = value;
+    sum += value;
   }
-  // normalized
+
   if (sum > 0)
     for (auto &it : kernel)
       it /= sum;
@@ -135,42 +124,52 @@ std::vector<double> ImageProcessingCore::createGaussianKernel(int size, double s
 Image ImageProcessingCore::applyGaussianBlur(const Image &input, int kernelSize, double sigma)
 {
   if (input.width <= 0 || input.height <= 0 || input.data.empty())
-  {
     return Image();
-  }
   validateKernelSize(kernelSize);
   optimalSigma(sigma, kernelSize);
 
   std::vector<double> kernel = createGaussianKernel(kernelSize, sigma);
+  int half = kernelSize / 2;
 
-  // convolution
+  // horizontal blur
+  Image temp(input.width, input.height);
+  for (int y = 0; y < input.height; y++)
+  {
+    for (int x = 0; x < input.width; x++)
+    {
+      double sumR = 0.0, sumG = 0.0, sumB = 0.0;
+      for (int kx = -half; kx <= half; kx++)
+      {
+        int neighborX = std::max(0, std::min(input.width - 1, x + kx));
+        int idx = (y * input.width + neighborX) * 3;
+        double weight = kernel[kx + half];
+        sumR += weight * input.data[idx];
+        sumG += weight * input.data[idx + 1];
+        sumB += weight * input.data[idx + 2];
+      }
+      int outIdx = (y * input.width + x) * 3;
+      temp.data[outIdx] = clamp(static_cast<int>(std::round(sumR)));
+      temp.data[outIdx + 1] = clamp(static_cast<int>(std::round(sumG)));
+      temp.data[outIdx + 2] = clamp(static_cast<int>(std::round(sumB)));
+    }
+  }
   Image output(input.width, input.height);
-  int halfKernel = kernelSize / 2;
-
   for (int y = 0; y < input.height; y++)
   {
     for (int x = 0; x < input.width; x++)
     {
       double sumR = 0.0, sumG = 0.0, sumB = 0.0;
 
-      for (int ky = -halfKernel; ky <= halfKernel; ky++)
+      for (int ky = -half; ky <= half; ky++)
       {
-        for (int kx = -halfKernel; kx <= halfKernel; kx++)
-        {
-          // clamping
-          int neighborX = std::max(0, std::min(input.width - 1, x + kx));
-          int neighborY = std::max(0, std::min(input.height - 1, y + ky));
+        int neighborY = std::max(0, std::min(input.height - 1, y + ky));
+        int idx = (neighborY * input.width + x) * 3;
+        double weight = kernel[ky + half];
 
-          int imgIdx = (neighborY * input.width + neighborX) * 3;
-          int kIdx = (ky + halfKernel) * kernelSize + (kx + halfKernel);
-
-          double weight = kernel[kIdx];
-          sumR += weight * input.data[imgIdx];
-          sumG += weight * input.data[imgIdx + 1];
-          sumB += weight * input.data[imgIdx + 2];
-        }
+        sumR += weight * temp.data[idx];
+        sumG += weight * temp.data[idx + 1];
+        sumB += weight * temp.data[idx + 2];
       }
-
       int outIdx = (y * input.width + x) * 3;
       output.data[outIdx] = clamp(static_cast<int>(std::round(sumR)));
       output.data[outIdx + 1] = clamp(static_cast<int>(std::round(sumG)));
