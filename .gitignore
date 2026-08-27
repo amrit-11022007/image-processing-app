@@ -11,6 +11,7 @@ frontend/node_modules/*
 node-server/node_modules/
 node-server/uploads/
 node-server/*.log
+node-server/dist/
 
 # C++ specific
 cpp-server/*.o

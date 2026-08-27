@@ -16,15 +16,13 @@ struct Image
   }
 };
 
-class ImageProcessingCore // Renamed from ImageProcessor
+class ImageProcessingCore
 {
 public:
-  // Public methods
   Image applyBoxBlur(const Image &input, int kernelSize);
   Image toGrayscale(const Image &input);
 
 private:
-  // Private helpers
   uint8_t clamp(int value);
   void validateKernelSize(int &kernelSize);
 };
