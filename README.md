@@ -28,17 +28,16 @@ docker-compose up --build
 # API: http://localhost:3001
 # gRPC: localhost:50051
 
-cd cpp-server
-./grpc_server
-
+#start the node server
 cd node-server
 npm install
+npm run build
 npm start
 
+#start the NextJS
 cd frontend
 pnpm install
 pnpm build
 pnpm dev
-
 
 ```
