@@ -106,6 +106,8 @@ app.post(
 
       const operation = req.body.operation || "box_blur";
       const kernelSize = parseInt(req.body.kernelSize) || 3;
+      const parsedSigma = Number(req.body.sigma);
+      const sigma = Number.isFinite(parsedSigma) ? parsedSigma : 0;
 
       console.log(`Processing ${file.originalname} with ${operation}`);
 
@@ -119,6 +121,7 @@ app.post(
         height,
         operation,
         kernelSize,
+        sigma,
       );
 
       // Clean up uploaded file

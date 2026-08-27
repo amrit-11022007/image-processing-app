@@ -12,6 +12,7 @@ message ImageRequest {
     int32 height = 3;
     string operation = 4;
     int32 kernel_size = 5;
+    double sigma = 6;
 }
 
 message ImageResponse {

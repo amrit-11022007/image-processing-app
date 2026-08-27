@@ -22,7 +22,7 @@ RUN protoc --cpp_out=. proto/image_processor.proto
 RUN protoc --grpc_out=. --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` proto/image_processor.proto
 
 # Compile with proper include paths
-RUN g++ -std=c++17 \
+RUN g++ -std=c++20 \
     -I/app \
     -I/app/proto \
     /app/cpp-server/main.cpp \

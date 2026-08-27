@@ -10,7 +10,6 @@ using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
 
-// Don't need to redefine ImageProcessingCore - it's in the header
 using imageprocessor::ImageRequest;
 using imageprocessor::ImageResponse;
 
@@ -34,7 +33,7 @@ public:
       std::cout << "Processing " << input.width << "x" << input.height
                 << " image with operation: " << request->operation() << std::endl;
 
-      ImageProcessingCore processor; // This class is defined in image_processor.h
+      ImageProcessingCore processor;
       Image result;
 
       if (request->operation() == "box_blur")
@@ -47,6 +46,14 @@ public:
       else if (request->operation() == "grayscale")
       {
         result = processor.toGrayscale(input);
+      }
+      else if (request->operation() == "gaussian_blur")
+      {
+        int kernelSize = request->kernel_size(); // FIXED: declared here
+        if (kernelSize == 0)
+          kernelSize = 3;
+        double sigma = request->sigma();
+        result = processor.applyGaussianBlur(input, kernelSize, sigma);
       }
       else
       {
@@ -75,12 +82,18 @@ void RunServer()
   std::string server_address("0.0.0.0:50051");
   ImageProcessorServiceImpl service;
 
-  ServerBuilder builder;
+  grpc::ServerBuilder builder;
+
+  // Set max receive and send message sizes (50 MB)
+  builder.SetMaxReceiveMessageSize(50 * 1024 * 1024); // 50 MB
+  builder.SetMaxSendMessageSize(50 * 1024 * 1024);    // 50 MB
+
   builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
   builder.RegisterService(&service);
 
   std::unique_ptr<Server> server(builder.BuildAndStart());
   std::cout << "✅ C++ gRPC Server listening on " << server_address << std::endl;
+  std::cout << "📦 Max message size: 50 MB" << std::endl;
 
   server->Wait();
 }

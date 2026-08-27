@@ -12,23 +12,22 @@ export default function Home() {
   const [operation, setOperation] = useState("box_blur");
   const [kernelSize, setKernelSize] = useState(3);
 
-  // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (selected) {
       setFile(selected);
       setPreview(URL.createObjectURL(selected));
-      setResult(""); // Clear previous result
+      setResult("");
     }
   };
 
-  // Process image
-  const handleProcess = async () => {
+  const handleProcess = async (op: string) => {
     if (!file) return;
-
     setLoading(true);
+    setOperation(op);
+
     try {
-      const data = await processImage(file, operation, kernelSize);
+      const data = await processImage(file, op, kernelSize);
       if (data.success) {
         setResult(data.image);
       } else {
@@ -74,7 +73,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* Controls */}
+      {/* Controls - 3 Buttons */}
       <div
         style={{
           display: "flex",
@@ -85,42 +84,71 @@ export default function Home() {
         }}
       >
         <select
-          value={operation}
-          onChange={(e) => setOperation(e.target.value)}
+          value={kernelSize}
+          onChange={(e) => setKernelSize(Number(e.target.value))}
           style={{ padding: 8 }}
+          disabled={loading}
         >
-          <option value="box_blur">Box Blur</option>
-          <option value="grayscale">Grayscale</option>
+          <option value={3}>3×3</option>
+          <option value={5}>5×5</option>
+          <option value={7}>7×7</option>
+          <option value={9}>9×9</option>
         </select>
 
-        {operation === "box_blur" && (
-          <select
-            value={kernelSize}
-            onChange={(e) => setKernelSize(Number(e.target.value))}
-            style={{ padding: 8 }}
-          >
-            <option value={3}>3×3</option>
-            <option value={5}>5×5</option>
-            <option value={7}>7×7</option>
-            <option value={9}>9×9</option>
-          </select>
-        )}
-
         <button
-          onClick={handleProcess}
+          onClick={() => handleProcess("box_blur")}
           disabled={!file || loading}
           style={{
-            padding: "8px 24px",
-            background: loading ? "#ccc" : "#0070f3",
+            padding: "10px 24px",
+            background:
+              loading && operation === "box_blur" ? "#ccc" : "#0070f3",
             color: "white",
             border: "none",
             borderRadius: 4,
             cursor: loading ? "not-allowed" : "pointer",
           }}
         >
-          {loading ? "⏳ Processing..." : "🚀 Process"}
+          Box Blur
+        </button>
+
+        <button
+          onClick={() => handleProcess("gaussian_blur")}
+          disabled={!file || loading}
+          style={{
+            padding: "10px 24px",
+            background:
+              loading && operation === "gaussian_blur" ? "#ccc" : "#28a745",
+            color: "white",
+            border: "none",
+            borderRadius: 4,
+            cursor: loading ? "not-allowed" : "pointer",
+          }}
+        >
+          Gaussian Blur
+        </button>
+
+        <button
+          onClick={() => handleProcess("grayscale")}
+          disabled={!file || loading}
+          style={{
+            padding: "10px 24px",
+            background:
+              loading && operation === "grayscale" ? "#ccc" : "#6f42c1",
+            color: "white",
+            border: "none",
+            borderRadius: 4,
+            cursor: loading ? "not-allowed" : "pointer",
+          }}
+        >
+          Grayscale
         </button>
       </div>
+
+      {loading && (
+        <div style={{ textAlign: "center", margin: "20px 0" }}>
+          ⏳ Processing...
+        </div>
+      )}
 
       {/* Result */}
       {result && (
@@ -137,7 +165,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Side-by-side comparison if both exist */}
+      {/* Side-by-side comparison */}
       {preview && result && (
         <div
           style={{

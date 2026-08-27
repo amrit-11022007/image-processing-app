@@ -6,6 +6,7 @@ export interface ProcessImageRequest {
   height: number;
   operation: string;
   kernel_size: number;
+  sigma: number;
 }
 
 export interface ProcessImageResponse {

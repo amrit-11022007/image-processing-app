@@ -21,8 +21,13 @@ class ImageProcessingCore
 public:
   Image applyBoxBlur(const Image &input, int kernelSize);
   Image toGrayscale(const Image &input);
+  Image applyGaussianBlur(const Image &input, int kernelSize, double sigma);
+  std::vector<double> createGaussianKernel(int size, double sigma);
 
 private:
   uint8_t clamp(int value);
   void validateKernelSize(int &kernelSize);
+  void optimalSigma(double &sigma, int kernelSize);
+  double gaussian1D(double x, double sigma);
+  double gaussian2D(double x, double y, double sigma);
 };

@@ -28,10 +28,17 @@ class GrpcClient {
 
     const proto = grpc.loadPackageDefinition(packageDefinition) as any;
 
-    // Type assertion for the gRPC client
+    // ============ FIX: Create channel with increased limits ============
+    // Create a channel with max receive message size of 50 MB
+    const channelOptions = {
+      "grpc.max_receive_message_length": 50 * 1024 * 1024, // 50 MB
+      "grpc.max_send_message_length": 50 * 1024 * 1024, // 50 MB
+    };
+
     this.client = new proto.imageprocessor.ImageProcessor(
       serverAddress,
       grpc.credentials.createInsecure(),
+      channelOptions,
     ) as ImageProcessorClient;
   }
 
@@ -41,6 +48,7 @@ class GrpcClient {
     height: number,
     operation: string,
     kernelSize: number = 3,
+    sigma: number = 0,
   ): Promise<ProcessImageResult> {
     return new Promise((resolve, reject) => {
       const request: ProcessImageRequest = {
@@ -49,6 +57,7 @@ class GrpcClient {
         height: height,
         operation: operation,
         kernel_size: kernelSize,
+        sigma: sigma,
       };
 
       this.client.processImage(request, (error, response) => {
