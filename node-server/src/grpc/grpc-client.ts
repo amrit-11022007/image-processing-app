@@ -16,6 +16,13 @@ export interface ProcessImageResult {
   height: number;
 }
 
+export interface UploadImageResult {
+  success: boolean;
+  message: string;
+  requestId: string;
+  totalBytes: number;
+}
+
 export class GRPCClient {
   private client: any;
 
@@ -74,6 +81,56 @@ export class GRPCClient {
           }
         },
       );
+    });
+  }
+
+  uploadImage(
+    imageData: Buffer,
+    width: number,
+    height: number,
+    operation: string,
+    kernelSize: number = 3,
+    sigma: number = 0,
+    requestId: string,
+    chunkSize = 1024 * 1024,
+  ): Promise<UploadImageResult> {
+    return new Promise((resolve, reject) => {
+      const call = this.client.uploadImage((error: any, response: any) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve({
+          success: response.success,
+          message: response.message,
+          requestId: response.request_id,
+          totalBytes: response.total_bytes,
+        });
+      });
+
+      const totalChunks = Math.ceil(imageData.length / chunkSize);
+      for (
+        let offset = 0, chunkNumber = 0;
+        offset < imageData.length;
+        offset += chunkSize, chunkNumber++
+      ) {
+        const data = imageData.subarray(offset, offset + chunkSize);
+        call.write({
+          data,
+          chunk_number: chunkNumber,
+          total_chunks: totalChunks,
+          is_last: chunkNumber === totalChunks - 1,
+          width,
+          height,
+          operation,
+          kernel_size: kernelSize,
+          sigma,
+          request_id: requestId,
+        });
+      }
+
+      call.end();
     });
   }
 }

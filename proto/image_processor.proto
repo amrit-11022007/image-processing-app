@@ -4,6 +4,9 @@ package imageprocessor;
 
 service ImageProcessor {
     rpc ProcessImage (ImageRequest) returns (ImageResponse);
+    rpc UploadImage (stream ImageChunk) returns (UploadResponse);
+    rpc DownloadImage (DownloadRequest) returns (stream ImageChunk);
+    rpc ProcessImageStream (stream ImageChunk) returns (stream ImageChunk);
 }
 
 message ImageRequest {
@@ -20,4 +23,29 @@ message ImageResponse {
     int32 width = 2;
     int32 height = 3;
     string error = 4;
+}
+
+message ImageChunk {
+    bytes data = 1;
+    int32 chunk_number = 2;
+    int32 total_chunks = 3;
+    bool is_last = 4;
+    int32 width = 5;
+    int32 height = 6;
+    string operation = 7;
+    int32 kernel_size = 8;
+    double sigma = 9;
+    string request_id = 10;
+}
+
+message UploadResponse {
+  bool success = 1;
+  string message = 2;
+  string request_id = 3;
+  int32 total_bytes = 4;
+}
+
+message DownloadRequest {
+  string request_id = 1;
+  string operation = 2;
 }

@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import fs from "fs";
+import crypto from "crypto";
 import { GRPCClient } from "../grpc/grpc-client.js";
 import { imageToRawRGB, rawRGBToPNG } from "../utils/image-converter.js";
 
@@ -40,10 +41,8 @@ export const processImage = async (req: Request, res: Response) => {
       sigma,
     );
 
-    // Clean up uploaded file
     fs.unlinkSync(file.path);
 
-    // Convert processed raw RGB back to PNG
     const processedPng = await rawRGBToPNG(
       Buffer.from(result.data),
       result.width,
@@ -73,5 +72,51 @@ export const processImage = async (req: Request, res: Response) => {
       success: false,
       error: (error as Error).message,
     });
+  }
+};
+
+export interface UploadResult {
+  success: boolean;
+  message: string;
+  requestId: string;
+  totalBytes: number;
+}
+
+export const uploadImage = async (req: Request, res: Response) => {
+  const file = req.file;
+
+  try {
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        error: "No image file provided",
+      });
+    }
+    const operation = req.body.operation || "box_blur";
+    const kernelSize = parseInt(req.body.kernelSize) || 3;
+    const sigma = Number(req.body.sigma) || 0;
+    const { data: rgbData, width, height } = await imageToRawRGB(file.path);
+
+    const result = await grpcClient.uploadImage(
+      rgbData,
+      width,
+      height,
+      operation,
+      kernelSize,
+      sigma,
+      crypto.randomUUID(),
+    );
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    res.status(500).json({
+      success: false,
+      error: (error as Error).message,
+    });
+  } finally {
+    if (file && fs.existsSync(file.path)) {
+      fs.unlinkSync(file.path);
+    }
   }
 };
