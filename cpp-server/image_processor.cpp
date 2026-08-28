@@ -1,12 +1,34 @@
 #include "image_processor.h"
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc.hpp>
 #include <algorithm>
 #include <cmath>
-#include <numbers>
 
-void ImageProcessingCore::optimalSigma(double &sigma, int kernelSize)
+// Helper functions to convert between your Image struct and cv::Mat
+cv::Mat ImageProcessingCore::convertToMat(const Image &input)
 {
-  if (sigma <= 0)
-    sigma = (kernelSize - 1) / 6.0; // kernel size = 6 * sigma + 1, it covers 99.7% for +- 3 sigma.
+  cv::Mat mat(input.height, input.width, CV_8UC3);
+  std::memcpy(mat.data, input.data.data(), input.data.size());
+  return mat;
+}
+
+Image ImageProcessingCore::convertToImage(const cv::Mat &mat)
+{
+  Image img(mat.cols, mat.rows);
+
+  if (mat.channels() == 3)
+  {
+    std::memcpy(img.data.data(), mat.data, mat.total() * mat.channels());
+  }
+  else if (mat.channels() == 1)
+  {
+    // Convert grayscale back to RGB
+    cv::Mat rgb;
+    cv::cvtColor(mat, rgb, cv::COLOR_GRAY2BGR);
+    std::memcpy(img.data.data(), rgb.data, rgb.total() * 3);
+  }
+
+  return img;
 }
 
 uint8_t ImageProcessingCore::clamp(int value)
@@ -24,6 +46,12 @@ void ImageProcessingCore::validateKernelSize(int &kernelSize)
     kernelSize = 15;
 }
 
+void ImageProcessingCore::optimalSigma(double &sigma, int kernelSize)
+{
+  if (sigma <= 0)
+    sigma = (kernelSize - 1) / 6.0;
+}
+
 Image ImageProcessingCore::applyBoxBlur(const Image &input, int kernelSize)
 {
   if (input.width <= 0 || input.height <= 0 || input.data.empty())
@@ -32,70 +60,37 @@ Image ImageProcessingCore::applyBoxBlur(const Image &input, int kernelSize)
   }
 
   validateKernelSize(kernelSize);
-  Image output(input.width, input.height);
 
-  int halfKernel = kernelSize / 2;
+  cv::Mat img = convertToMat(input);
+  cv::Mat result;
 
-  for (int y = 0; y < input.height; y++)
-  {
-    for (int x = 0; x < input.width; x++)
-    {
-      int sumR = 0, sumG = 0, sumB = 0;
-      int validPixels = 0;
+  // OpenCV's optimized box filter
+  cv::blur(img, result, cv::Size(kernelSize, kernelSize));
 
-      for (int ky = -halfKernel; ky <= halfKernel; ky++)
-      {
-        for (int kx = -halfKernel; kx <= halfKernel; kx++)
-        {
-          int neighborX = std::max(0, std::min(input.width - 1, x + kx));
-          int neighborY = std::max(0, std::min(input.height - 1, y + ky));
-
-          int idx = (neighborY * input.width + neighborX) * 3;
-
-          sumR += input.data[idx];
-          sumG += input.data[idx + 1];
-          sumB += input.data[idx + 2];
-          validPixels++;
-        }
-      }
-
-      int outIdx = (y * input.width + x) * 3;
-      output.data[outIdx] = clamp(sumR / validPixels);
-      output.data[outIdx + 1] = clamp(sumG / validPixels);
-      output.data[outIdx + 2] = clamp(sumB / validPixels);
-    }
-  }
-
-  return output;
+  return convertToImage(result);
 }
 
 Image ImageProcessingCore::toGrayscale(const Image &input)
 {
-  Image output(input.width, input.height);
-
-  for (int y = 0; y < input.height; y++)
+  if (input.width <= 0 || input.height <= 0 || input.data.empty())
   {
-    for (int x = 0; x < input.width; x++)
-    {
-      int idx = (y * input.width + x) * 3;
-
-      uint8_t gray = static_cast<uint8_t>(
-          0.299 * input.data[idx] +
-          0.587 * input.data[idx + 1] +
-          0.114 * input.data[idx + 2]);
-
-      output.data[idx] = gray;
-      output.data[idx + 1] = gray;
-      output.data[idx + 2] = gray;
-    }
+    return Image();
   }
 
-  return output;
+  cv::Mat img = convertToMat(input);
+  cv::Mat gray, result;
+
+  // Convert to grayscale using OpenCV's optimized conversion
+  cv::cvtColor(img, gray, cv::COLOR_BGR2GRAY);
+  // Convert back to 3-channel for consistency
+  cv::cvtColor(gray, result, cv::COLOR_GRAY2BGR);
+
+  return convertToImage(result);
 }
 
 double ImageProcessingCore::gaussian1D(double x, double sigma)
 {
-  return (1.0 / (sigma * std::sqrt(2.0 * std::numbers::pi)) * std::exp(-(x * x) / (2 * sigma * sigma)));
+  return (1.0 / (sigma * std::sqrt(2.0 * M_PI)) * std::exp(-(x * x) / (2 * sigma * sigma)));
 }
 
 std::vector<double> ImageProcessingCore::createGaussianKernel(int size, double sigma)
@@ -125,56 +120,15 @@ Image ImageProcessingCore::applyGaussianBlur(const Image &input, int kernelSize,
 {
   if (input.width <= 0 || input.height <= 0 || input.data.empty())
     return Image();
+
   validateKernelSize(kernelSize);
   optimalSigma(sigma, kernelSize);
 
-  std::vector<double> kernel = createGaussianKernel(kernelSize, sigma);
-  int half = kernelSize / 2;
+  cv::Mat img = convertToMat(input);
+  cv::Mat result;
 
-  // horizontal blur
-  Image temp(input.width, input.height);
-  for (int y = 0; y < input.height; y++)
-  {
-    for (int x = 0; x < input.width; x++)
-    {
-      double sumR = 0.0, sumG = 0.0, sumB = 0.0;
-      for (int kx = -half; kx <= half; kx++)
-      {
-        int neighborX = std::max(0, std::min(input.width - 1, x + kx));
-        int idx = (y * input.width + neighborX) * 3;
-        double weight = kernel[kx + half];
-        sumR += weight * input.data[idx];
-        sumG += weight * input.data[idx + 1];
-        sumB += weight * input.data[idx + 2];
-      }
-      int outIdx = (y * input.width + x) * 3;
-      temp.data[outIdx] = clamp(static_cast<int>(std::round(sumR)));
-      temp.data[outIdx + 1] = clamp(static_cast<int>(std::round(sumG)));
-      temp.data[outIdx + 2] = clamp(static_cast<int>(std::round(sumB)));
-    }
-  }
-  Image output(input.width, input.height);
-  for (int y = 0; y < input.height; y++)
-  {
-    for (int x = 0; x < input.width; x++)
-    {
-      double sumR = 0.0, sumG = 0.0, sumB = 0.0;
+  // OpenCV's optimized Gaussian blur (uses SIMD and multi-threading)
+  cv::GaussianBlur(img, result, cv::Size(kernelSize, kernelSize), sigma, sigma, cv::BORDER_REPLICATE);
 
-      for (int ky = -half; ky <= half; ky++)
-      {
-        int neighborY = std::max(0, std::min(input.height - 1, y + ky));
-        int idx = (neighborY * input.width + x) * 3;
-        double weight = kernel[ky + half];
-
-        sumR += weight * temp.data[idx];
-        sumG += weight * temp.data[idx + 1];
-        sumB += weight * temp.data[idx + 2];
-      }
-      int outIdx = (y * input.width + x) * 3;
-      output.data[outIdx] = clamp(static_cast<int>(std::round(sumR)));
-      output.data[outIdx + 1] = clamp(static_cast<int>(std::round(sumG)));
-      output.data[outIdx + 2] = clamp(static_cast<int>(std::round(sumB)));
-    }
-  }
-  return output;
+  return convertToImage(result);
 }

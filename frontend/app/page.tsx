@@ -120,7 +120,7 @@ export default function Home() {
       <div className="fixed top-0 left-0 right-0 z-50 bg-[#1a1a2e]/90 backdrop-blur-xl border-b border-violet-500/20">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-linear-to-br from-violet-500 to-fuchsia-600 rounded-lg flex items-center justify-center">
               <svg
                 className="w-6 h-6 text-white"
                 fill="none"
@@ -135,7 +135,7 @@ export default function Home() {
                 />
               </svg>
             </div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
+            <h1 className="text-xl font-bold bg-linear-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
               Neural Editor
             </h1>
           </div>
@@ -249,7 +249,7 @@ export default function Home() {
                   key={op.id}
                   onClick={() => handleProcess(op.id)}
                   disabled={!file || loading}
-                  className={`w-full group relative overflow-hidden rounded-lg p-4 bg-gradient-to-r ${op.gradient} 
+                  className={`w-full group relative overflow-hidden rounded-lg p-4 bg-linear-to-r ${op.gradient} 
                     transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed
                     ${loading && operation === op.id ? "ring-2 ring-white" : ""}`}
                 >

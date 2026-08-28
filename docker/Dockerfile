@@ -2,13 +2,14 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dependencies
+# Install dependencies including OpenCV
 RUN apt-get update && apt-get install -y \
     build-essential \
     pkg-config \
     libgrpc++-dev \
     protobuf-compiler-grpc \
     libprotobuf-dev \
+    libopencv-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -21,7 +22,7 @@ COPY cpp-server/ ./cpp-server/
 RUN protoc --cpp_out=. proto/image_processor.proto
 RUN protoc --grpc_out=. --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` proto/image_processor.proto
 
-# Compile with proper include paths
+# Compile with proper include paths and OpenCV libraries
 RUN g++ -std=c++20 \
     -I/app \
     -I/app/proto \
@@ -30,6 +31,7 @@ RUN g++ -std=c++20 \
     /app/proto/image_processor.pb.cc \
     /app/proto/image_processor.grpc.pb.cc \
     `pkg-config --cflags --libs grpc++ protobuf` \
+    `pkg-config --cflags --libs opencv4` \
     -lpthread \
     -o /app/grpc_server
 

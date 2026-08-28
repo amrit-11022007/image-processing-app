@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <opencv2/opencv.hpp>
 
 struct Image
 {
@@ -29,4 +30,8 @@ private:
   void validateKernelSize(int &kernelSize);
   void optimalSigma(double &sigma, int kernelSize);
   double gaussian1D(double x, double sigma);
+
+  // OpenCV conversion helpers
+  cv::Mat convertToMat(const Image &input);
+  Image convertToImage(const cv::Mat &mat);
 };
