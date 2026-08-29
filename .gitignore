@@ -14,10 +14,9 @@ node-server/*.log
 node-server/dist/
 
 # C++ specific
-cpp-server/*.o
-cpp-server/*.obj
-cpp-server/grpc_server
-cpp-server/image_processor
+proto/*.pb.cc
+proto/*.pb.h
+cpp-server/build
 
 .vscode
 node_modules

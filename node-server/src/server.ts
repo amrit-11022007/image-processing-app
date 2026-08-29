@@ -10,6 +10,7 @@ app.use(cors({ origin: config.cors.origin }));
 app.use(express.json());
 
 // Routes
+app.use("/api", routes);
 app.use("/", routes);
 
 // Start server

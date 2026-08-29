@@ -14,6 +14,13 @@ export interface ProcessImageResult {
   data: Buffer;
   width: number;
   height: number;
+  sessionId?: string;
+}
+
+export interface HistoryInfoResult {
+  totalOperations: number;
+  currentPosition: number;
+  operationNames: string[];
 }
 
 export interface UploadImageResult {
@@ -21,6 +28,7 @@ export interface UploadImageResult {
   message: string;
   requestId: string;
   totalBytes: number;
+  sessionId: string;
 }
 
 export class GRPCClient {
@@ -56,6 +64,7 @@ export class GRPCClient {
     operation: string,
     kernelSize: number = 3,
     sigma: number = 0,
+    sessionId?: string,
   ): Promise<ProcessImageResult> {
     return new Promise((resolve, reject) => {
       this.client.processImage(
@@ -66,6 +75,7 @@ export class GRPCClient {
           operation,
           kernel_size: kernelSize,
           sigma,
+          session_id: sessionId || "default-session",
         },
         (error: any, response: any) => {
           if (error) {
@@ -77,8 +87,81 @@ export class GRPCClient {
               data: response.processed_data,
               width: response.width,
               height: response.height,
+              sessionId: sessionId || "default-session",
             });
           }
+        },
+      );
+    });
+  }
+
+  getHistory(sessionId: string): Promise<HistoryInfoResult> {
+    return new Promise((resolve, reject) => {
+      this.client.getHistory(
+        { session_id: sessionId },
+        (error: any, response: any) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          resolve({
+            totalOperations: response.total_operations,
+            currentPosition: response.current_position,
+            operationNames: response.operation_names || [],
+          });
+        },
+      );
+    });
+  }
+
+  undo(sessionId: string): Promise<ProcessImageResult> {
+    return new Promise((resolve, reject) => {
+      this.client.undo(
+        { session_id: sessionId },
+        (error: any, response: any) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          if (response.error) {
+            reject(new Error(response.error));
+            return;
+          }
+
+          resolve({
+            data: response.image_data,
+            width: response.width,
+            height: response.height,
+            sessionId,
+          });
+        },
+      );
+    });
+  }
+
+  redo(sessionId: string): Promise<ProcessImageResult> {
+    return new Promise((resolve, reject) => {
+      this.client.redo(
+        { session_id: sessionId },
+        (error: any, response: any) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          if (response.error) {
+            reject(new Error(response.error));
+            return;
+          }
+
+          resolve({
+            data: response.image_data,
+            width: response.width,
+            height: response.height,
+            sessionId,
+          });
         },
       );
     });
@@ -92,6 +175,7 @@ export class GRPCClient {
     kernelSize: number = 3,
     sigma: number = 0,
     requestId: string,
+    sessionId: string,
     chunkSize = 1024 * 1024,
   ): Promise<UploadImageResult> {
     return new Promise((resolve, reject) => {
@@ -106,6 +190,7 @@ export class GRPCClient {
           message: response.message,
           requestId: response.request_id,
           totalBytes: response.total_bytes,
+          sessionId: response.session_id,
         });
       });
 
@@ -127,6 +212,7 @@ export class GRPCClient {
           kernel_size: kernelSize,
           sigma,
           request_id: requestId,
+          session_id: sessionId,
         });
       }
 

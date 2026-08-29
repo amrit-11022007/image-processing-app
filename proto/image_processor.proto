@@ -7,7 +7,31 @@ service ImageProcessor {
     rpc UploadImage (stream ImageChunk) returns (UploadResponse);
     rpc DownloadImage (DownloadRequest) returns (stream ImageChunk);
     rpc ProcessImageStream (stream ImageChunk) returns (stream ImageChunk);
+
+    rpc Undo (HistoryRequest) returns (HistoryResponse);
+    rpc Redo (HistoryRequest) returns (HistoryResponse);
+    rpc GetHistory (HistoryRequest) returns (HistoryInfo);
 }
+
+message HistoryRequest {
+    string session_id = 1;
+}
+
+message HistoryResponse {
+    bytes image_data = 1;
+    int32 width = 2;
+    int32 height = 3;
+    bool success = 4;
+    string error = 5;
+}
+
+message HistoryInfo {
+    int32 total_operations = 1;
+    int32 current_position = 2;
+    repeated string operation_names = 3;
+}
+
+message Empty {}
 
 message ImageRequest {
     bytes image_data = 1;
@@ -16,6 +40,7 @@ message ImageRequest {
     string operation = 4;
     int32 kernel_size = 5;
     double sigma = 6;
+    string session_id = 7;
 }
 
 message ImageResponse {
@@ -36,6 +61,7 @@ message ImageChunk {
     int32 kernel_size = 8;
     double sigma = 9;
     string request_id = 10;
+    string session_id = 11;
 }
 
 message UploadResponse {
@@ -43,6 +69,7 @@ message UploadResponse {
   string message = 2;
   string request_id = 3;
   int32 total_bytes = 4;
+  string session_id = 5;
 }
 
 message DownloadRequest {

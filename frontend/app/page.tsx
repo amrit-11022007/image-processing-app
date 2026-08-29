@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import { processImage } from "@/app/lib/api";
+import { getHistory, processImage, redoImage, undoImage } from "@/app/lib/api";
+import { HistoryItem } from "@/app/types";
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
@@ -12,10 +13,32 @@ export default function Home() {
   const [operation, setOperation] = useState("box_blur");
   const [kernelSize, setKernelSize] = useState(3);
   const [showOriginal, setShowOriginal] = useState(false);
+  const [sessionId, setSessionId] = useState<string>("default-session");
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [currentHistoryIndex, setCurrentHistoryIndex] = useState(-1);
   const [imageDimensions, setImageDimensions] = useState({
     width: 0,
     height: 0,
   });
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("photopea-session-id");
+    const nextSessionId = saved || crypto.randomUUID();
+    window.localStorage.setItem("photopea-session-id", nextSessionId);
+    setSessionId(nextSessionId);
+  }, []);
+
+  const refreshHistory = async (activeSessionId: string) => {
+    const data = await getHistory(activeSessionId);
+    if (data.success) {
+      const items = (data.operationNames || []).map((name, index) => ({
+        name,
+        index,
+      }));
+      setHistory(items);
+      setCurrentHistoryIndex(data.currentPosition ?? -1);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -24,13 +47,14 @@ export default function Home() {
       setPreview(URL.createObjectURL(selected));
       setResult("");
 
-      // Get image dimensions
       const img = new window.Image();
       img.onload = () => {
         setImageDimensions({ width: img.width, height: img.height });
       };
       img.src = URL.createObjectURL(selected);
     }
+
+    e.target.value = "";
   };
 
   const handleProcess = async (op: string) => {
@@ -39,9 +63,10 @@ export default function Home() {
     setOperation(op);
 
     try {
-      const data = await processImage(file, op, kernelSize);
+      const data = await processImage(file, op, kernelSize, 0, sessionId);
       if (data.success) {
         setResult(data.image);
+        await refreshHistory(sessionId);
       } else {
         alert("Error: " + data.error);
       }
@@ -50,6 +75,41 @@ export default function Home() {
     }
     setLoading(false);
   };
+
+  const handleUndo = async () => {
+    if (!sessionId) return;
+    try {
+      setLoading(true);
+      const data = await undoImage(sessionId);
+      if (data.success && data.image) {
+        setResult(data.image);
+        await refreshHistory(sessionId);
+      }
+    } catch (err) {
+      alert("Undo failed: " + err);
+    }
+    setLoading(false);
+  };
+
+  const handleRedo = async () => {
+    if (!sessionId) return;
+    try {
+      setLoading(true);
+      const data = await redoImage(sessionId);
+      if (data.success && data.image) {
+        setResult(data.image);
+        await refreshHistory(sessionId);
+      }
+    } catch (err) {
+      alert("Redo failed: " + err);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    if (!sessionId) return;
+    refreshHistory(sessionId).catch(() => undefined);
+  }, [sessionId]);
 
   const operations = [
     {
@@ -114,6 +174,11 @@ export default function Home() {
     },
   ];
 
+  const appliedFilters =
+    history.length > 0
+      ? history.map((item) => item.name)
+      : ["No filters applied"];
+
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
       {/* Top Navigation Bar */}
@@ -140,15 +205,35 @@ export default function Home() {
             </h1>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={handleUndo}
+              disabled={
+                loading || history.length === 0 || currentHistoryIndex <= 0
+              }
+              className="px-4 py-2 text-sm font-medium text-white bg-slate-800 border border-violet-400/60 rounded-lg shadow-lg shadow-violet-900/20 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Undo
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={
+                loading ||
+                history.length === 0 ||
+                currentHistoryIndex >= history.length - 1
+              }
+              className="px-4 py-2 text-sm font-medium text-white bg-slate-800 border border-violet-400/60 rounded-lg shadow-lg shadow-violet-900/20 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Redo
+            </button>
             {imageDimensions.width > 0 && (
-              <span className="text-sm text-violet-300 bg-violet-500/20 px-3 py-1 rounded-lg">
+              <span className="text-sm text-violet-200 bg-violet-500/20 border border-violet-400/30 px-3 py-2 rounded-lg">
                 {imageDimensions.width} × {imageDimensions.height}
               </span>
             )}
             <button
               onClick={() => setShowOriginal(!showOriginal)}
-              className="px-4 py-2 text-sm bg-violet-500/20 border border-violet-500/30 rounded-lg hover:bg-violet-500/30 transition-colors"
+              className="px-4 py-2 text-sm font-medium bg-violet-500/20 border border-violet-400/50 rounded-lg hover:bg-violet-500/30 transition-colors"
             >
               {showOriginal ? "Show Processed" : "Show Original"}
             </button>
@@ -172,7 +257,7 @@ export default function Home() {
                 onChange={handleFileChange}
                 className="hidden"
               />
-              <div className="border-2 border-dashed border-violet-500/30 rounded-lg p-6 text-center hover:border-violet-500/60 transition-colors">
+              <div className="border-2 border-dashed border-violet-500/30 rounded-lg p-6 text-center hover:border-violet-500/60 transition-colors bg-slate-950/40">
                 {file ? (
                   <div className="space-y-2">
                     <svg
@@ -213,13 +298,42 @@ export default function Home() {
             </label>
           </div>
 
+          <div className="p-4 border-b border-violet-500/20">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300">
+                Actions
+              </h3>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={handleUndo}
+                disabled={
+                  loading || history.length === 0 || currentHistoryIndex <= 0
+                }
+                className="px-3 py-2 text-sm font-medium text-white bg-slate-900 border border-violet-400/50 rounded-lg hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Undo
+              </button>
+              <button
+                onClick={handleRedo}
+                disabled={
+                  loading ||
+                  history.length === 0 ||
+                  currentHistoryIndex >= history.length - 1
+                }
+                className="px-3 py-2 text-sm font-medium text-white bg-slate-900 border border-violet-400/50 rounded-lg hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Redo
+              </button>
+            </div>
+          </div>
+
           {/* Filters Section */}
           <div className="flex-1 overflow-y-auto p-6">
             <h2 className="text-sm font-semibold text-violet-300 mb-4 uppercase tracking-wider">
               Filters
             </h2>
 
-            {/* Kernel Size Selector */}
             <div className="mb-6">
               <label className="text-sm text-violet-300 mb-2 block">
                 Kernel Size
@@ -242,7 +356,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Operation Buttons */}
             <div className="space-y-3">
               {operations.map((op) => (
                 <button
@@ -266,6 +379,37 @@ export default function Home() {
                   )}
                 </button>
               ))}
+            </div>
+
+            <div className="mt-8 border-t border-violet-500/20 pt-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300">
+                  Applied Filters
+                </h3>
+                <span className="text-[10px] text-violet-400">
+                  {history.length} steps
+                </span>
+              </div>
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {appliedFilters.map((name, index) => (
+                  <div
+                    key={`${name}-${index}`}
+                    className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+                      index === currentHistoryIndex ||
+                      (history.length === 0 && index === 0)
+                        ? "border-violet-400 bg-violet-500/15 text-violet-100"
+                        : "border-violet-500/20 bg-slate-900/40 text-violet-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate">{name}</span>
+                      <span className="text-[10px] uppercase tracking-wide text-violet-400">
+                        {history.length > 0 ? `#${index + 1}` : "Idle"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 

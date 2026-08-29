@@ -3,6 +3,7 @@
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 
 // Helper functions to convert between your Image struct and cv::Mat
 cv::Mat ImageProcessingCore::convertToMat(const Image &input)
@@ -90,7 +91,7 @@ Image ImageProcessingCore::toGrayscale(const Image &input)
 
 double ImageProcessingCore::gaussian1D(double x, double sigma)
 {
-  return (1.0 / (sigma * std::sqrt(2.0 * M_PI)) * std::exp(-(x * x) / (2 * sigma * sigma)));
+  return (1.0 / (sigma * std::sqrt(2.0 * std::numbers::pi)) * std::exp(-(x * x) / (2 * sigma * sigma)));
 }
 
 std::vector<double> ImageProcessingCore::createGaussianKernel(int size, double sigma)
